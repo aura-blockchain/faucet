@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA Devnet Faucet</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+    <!-- Devnet Banner -->
+    <div class="devnet-banner">
+        <span class="devnet-badge">DEVNET</span>
+        <span>This is an invite-only development network. Tokens have no real value.</span>
+        <a href="https://discord.gg/RwQ8pma6" target="_blank" class="devnet-link">Apply via Discord</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>AURA Devnet Faucet <span class="network-tag">aura-testnet-1</span></h1>
+                <p class="subtitle">Get test tokens for AURA blockchain development</p>
+                <div class="access-cta">
+                    <p>Devnet/Testnet is currently by request only.</p>
+                    <div class="access-links">
+                        <a href="https://github.com/aura-blockchain/testnets/issues/new?template=devnet-access.yml" target="_blank" rel="noopener">Request via GitHub</a>
+                        <a href="mailto:dev@aurablockchain.org">Email dev@aurablockchain.org</a>
+                        <a href="https://discord.gg/RwQ8pma6" target="_blank" rel="noopener">Request via Discord</a>
+                    </div>
+                </div>
+            </div>
+            <div class="header-links">
+                <a href="https://artifacts.aurablockchain.org/index.html" target="_blank" class="header-link">Artifacts</a>
+                <a href="https://testnet-explorer.aurablockchain.org" target="_blank" class="header-link">Explorer</a>
+            </div>
+            <div class="network-status" id="networkStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking network...</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="card">
+                <div class="card-header">
+                    <h2>Request Test Tokens</h2>
+                    <div class="info-badge">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                        </svg>
+                        <span id="faucetAmount">200</span> AURA per request
+                    </div>
+                </div>
+
+                <form id="faucetForm">
+                    <div class="form-group">
+                        <label for="address">
+                            Wallet Address
+                            <span class="required">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="address"
+                            name="address"
+                            placeholder="auratest1..."
+                            required
+                            pattern="^auratest1[a-z0-9]{38,58}$"
+                            autocomplete="off"
+                        >
+                        <small class="help-text">Enter your AURA testnet address (starts with auratest1)</small>
+                        <div class="error-message" id="addressError"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="cf-turnstile"
+                             data-sitekey="0x4AAAAAACKf2gPfGVLqVyHr"
+                             data-callback="onCaptchaSuccess"
+                             data-expired-callback="onCaptchaExpired">
+                        </div>
+                        <div class="error-message" id="captchaError"></div>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="btn-primary" disabled>
+                        <span class="btn-text">Request Tokens</span>
+                        <span class="btn-loading" style="display: none;">
+                            <svg class="spinner" viewBox="0 0 50 50">
+                                <circle cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+                            </svg>
+                            Processing...
+                        </span>
+                    </button>
+
+                    <div class="rate-limit-info" id="rateLimitInfo">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                        </svg>
+                        <span>4-hour cooldown between requests. Max 2 per wallet / 5 per IP daily.</span>
+                    </div>
+                </form>
+
+                <div class="alert alert-success" id="successAlert" style="display: none;">
+                    <div class="alert-icon">✓</div>
+                    <div class="alert-content">
+                        <h3>Tokens Sent Successfully!</h3>
+                        <p id="successMessage"></p>
+                        <a href="#" id="txLink" target="_blank" class="tx-link">View Transaction →</a>
+                    </div>
+                </div>
+
+                <div class="alert alert-error" id="errorAlert" style="display: none;">
+                    <div class="alert-icon">✕</div>
+                    <div class="alert-content">
+                        <h3>Request Failed</h3>
+                        <p id="errorMessage"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Need a wallet?</h2>
+                </div>
+                <p class="help-text">Never share your recovery phrase or private key. We will never ask for it.</p>
+                <ul class="notice-list">
+                    <li><a href="/wallet.html">Create a testnet wallet in your browser</a></li>
+                    <li><a href="https://help.keplr.app/extension/5R3bMyjtr2FwnBvJQuJwJu/download-keplr-extension-for-beginners/5R3bMyjtr4eDwEEUCPFqUE" target="_blank" rel="noopener">Keplr Wallet (browser extension)</a></li>
+                    <li><a href="https://www.leapwallet.io/support/how-to-set-up-leap-wallet" target="_blank" rel="noopener">Leap Wallet (browser and mobile)</a></li>
+                    <li><a href="https://docs.cosmostation.io/extension/guide/account/intro" target="_blank" rel="noopener">Cosmostation Wallet (browser and mobile)</a></li>
+                    <li><a href="https://github.com/aura-blockchain/aura/blob/main/docs/TESTNET_ENDPOINTS.md" target="_blank" rel="noopener">CLI (developers): aurad keys add</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Important</h2>
+                </div>
+                <ul class="notice-list">
+                    <li>Devnet only. Tokens have no real value. Do not reuse mainnet keys.</li>
+                    <li>4-hour cooldown between requests per wallet.</li>
+                    <li>Max 2 requests per wallet / 5 per IP within 24 hours.</li>
+                    <li>Daily faucet cap is 40,000 AURA and resets at 12:00am EST.</li>
+                    <li>Max wallet balance for eligibility: 1,000 AURA.</li>
+                    <li>Devnet balances may reset without notice.</li>
+                </ul>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-icon">💧</div>
+                    <h3>Faucet Balance</h3>
+                    <p class="info-value" id="faucetBalance">Loading...</p>
+                    <small>Available tokens</small>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">📊</div>
+                    <h3>Total Distributed</h3>
+                    <p class="info-value" id="totalDistributed">Loading...</p>
+                    <small>Since genesis</small>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">👥</div>
+                    <h3>Unique Recipients</h3>
+                    <p class="info-value" id="uniqueRecipients">Loading...</p>
+                    <small>All time</small>
+                </div>
+
+                <div class="info-card">
+                    <div class="info-icon">🔄</div>
+                    <h3>Last 24 Hours</h3>
+                    <p class="info-value" id="last24h">Loading...</p>
+                    <small>Requests served</small>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Recent Transactions</h2>
+                </div>
+                <div class="transaction-list" id="recentTransactions">
+                    <div class="loading">Loading recent transactions...</div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-links">
+                <a href="https://github.com/aura-blockchain" target="_blank">GitHub</a>
+                <a href="https://github.com/aura-blockchain/aura-testnets" target="_blank">Testnet Docs</a>
+                <a href="https://discord.gg/RwQ8pma6" target="_blank">Discord</a>
+                <a href="/explorer" target="_blank">Block Explorer</a>
+                <a href="https://artifacts.aurablockchain.org/index.html" target="_blank">Artifacts</a>
+            </div>
+            <p class="footer-text">AURA Devnet Faucet | Chain ID: aura-testnet-1 | For Development Use Only</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

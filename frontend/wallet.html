@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA Testnet Wallet</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body data-address-prefix="aura" data-coin-type="118">
+    <!-- Devnet Banner -->
+    <div class="devnet-banner">
+        <span class="devnet-badge">DEVNET</span>
+        <span>This is an invite-only development network. Tokens have no real value.</span>
+        <a href="https://discord.gg/RwQ8pma6" target="_blank" class="devnet-link">Apply via Discord</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>AURA Testnet Wallet <span class="network-tag">aura-testnet-1</span></h1>
+                <p class="subtitle">Create a testnet wallet locally in your browser</p>
+            </div>
+            <div class="header-links">
+                <a href="/" class="header-link">Back to Faucet</a>
+                <a href="https://docs.aura.network" target="_blank" class="header-link">Docs</a>
+            </div>
+        </header>
+
+        <main>
+            <div class="card">
+                <div class="card-header">
+                    <h2>Create a Testnet Wallet</h2>
+                </div>
+                <p class="help-text">This tool runs entirely in your browser. Keys never leave your device.</p>
+                <p class="help-text">Write down your recovery phrase and store it securely.</p>
+
+                <button type="button" id="generateBtn" class="btn-primary">Generate Wallet</button>
+                <div id="statusMessage" class="status-message" style="display: none;"></div>
+
+                <div id="walletOutput" class="wallet-output" style="display: none;">
+                    <div class="form-group">
+                        <label for="mnemonicOutput">Recovery Phrase (24 words)</label>
+                        <textarea id="mnemonicOutput" rows="3" readonly></textarea>
+                        <div class="wallet-actions">
+                            <button type="button" id="copyMnemonicBtn" class="btn-secondary">Copy Phrase</button>
+                        </div>
+                        <small class="help-text">Never share your recovery phrase or private key.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="addressOutput">Wallet Address</label>
+                        <input id="addressOutput" type="text" readonly>
+                        <div class="wallet-actions">
+                            <button type="button" id="copyAddressBtn" class="btn-secondary">Copy Address</button>
+                            <a id="useFaucetBtn" class="btn-secondary" href="/">Use in Faucet</a>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="publicKeyOutput">Public Key (advanced)</label>
+                        <input id="publicKeyOutput" type="text" readonly>
+                        <div class="wallet-actions">
+                            <button type="button" id="copyPublicKeyBtn" class="btn-secondary">Copy Public Key</button>
+                        </div>
+                        <small class="help-text">Derivation path: <span id="derivationPathOutput">m/44'/118'/0'/0/0</span></small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Safety Reminders</h2>
+                </div>
+                <ul class="notice-list">
+                    <li>Testnet only. Tokens have no real value. Do not reuse mainnet keys.</li>
+                    <li>Never share your recovery phrase or private key. We will never ask for it.</li>
+                    <li>Save your recovery phrase before requesting faucet tokens.</li>
+                </ul>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-links">
+                <a href="https://github.com/aura-blockchain" target="_blank">GitHub</a>
+                <a href="https://github.com/aura-blockchain/aura-testnets" target="_blank">Testnet Docs</a>
+                <a href="https://discord.gg/RwQ8pma6" target="_blank">Discord</a>
+                <a href="/explorer" target="_blank">Block Explorer</a>
+            </div>
+            <p class="footer-text">AURA Testnet Wallet | Chain ID: aura-testnet-1 | For Development Use Only</p>
+        </footer>
+    </div>
+
+    <script src="wallet.js"></script>
+</body>
+</html>

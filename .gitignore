@@ -1,0 +1,51 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+*.out
+coverage.html
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# SSL certificates (except examples)
+ssl/*.pem
+ssl/*.key
+ssl/*.crt
+
+# Dependencies
+vendor/
+node_modules/
+
+# Build artifacts
+dist/
+build/
