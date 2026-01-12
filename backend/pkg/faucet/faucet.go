@@ -48,6 +48,11 @@ type NodeStatus struct {
 	} `json:"sync_info"`
 }
 
+// RPCResponse wraps CometBFT JSON-RPC response
+type RPCResponse struct {
+	Result NodeStatus `json:"result"`
+}
+
 // Balance represents account balance
 type Balance struct {
 	Balances []struct {
@@ -138,7 +143,12 @@ func (s *Service) GetAddressBalance(address string) (int64, error) {
 }
 
 func (s *Service) getBalanceForAddress(address string) (int64, error) {
-	url := fmt.Sprintf("%s/cosmos/bank/v1beta1/balances/%s", s.cfg.NodeRPC, address)
+	// Use REST API endpoint for balance queries
+	restURL := s.cfg.NodeREST
+	if restURL == "" {
+		restURL = s.cfg.NodeRPC // Fallback to RPC if REST not configured
+	}
+	url := fmt.Sprintf("%s/cosmos/bank/v1beta1/balances/%s", restURL, address)
 
 	resp, err := s.client.Get(url)
 	if err != nil {
@@ -170,6 +180,7 @@ func (s *Service) getBalanceForAddress(address string) (int64, error) {
 
 // GetNodeStatus returns the blockchain node status
 func (s *Service) GetNodeStatus() (*NodeStatus, error) {
+	// Use CometBFT RPC endpoint (port 26657) for node status
 	url := fmt.Sprintf("%s/status", s.cfg.NodeRPC)
 
 	resp, err := s.client.Get(url)
@@ -183,12 +194,13 @@ func (s *Service) GetNodeStatus() (*NodeStatus, error) {
 		return nil, fmt.Errorf("failed to get node status: status %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	var status NodeStatus
-	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+	// CometBFT RPC wraps response in {"jsonrpc":"2.0","result":{...}}
+	var rpcResp RPCResponse
+	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
 		return nil, fmt.Errorf("failed to decode status response: %w", err)
 	}
 
-	return &status, nil
+	return &rpcResp.Result, nil
 }
 
 // broadcastTransaction broadcasts a transaction to the blockchain
@@ -201,7 +213,12 @@ func (s *Service) broadcastTransaction(txData map[string]interface{}) (string, e
 	// For now, we'll simulate the transaction
 	// In a real implementation, use the Cosmos SDK Go client
 
-	url := fmt.Sprintf("%s/cosmos/tx/v1beta1/txs", s.cfg.NodeRPC)
+	// Use REST API endpoint (port 1317) for transaction broadcasting via gRPC-gateway
+	restURL := s.cfg.NodeREST
+	if restURL == "" {
+		restURL = s.cfg.NodeRPC // Fallback to RPC if REST not configured
+	}
+	url := fmt.Sprintf("%s/cosmos/tx/v1beta1/txs", restURL)
 
 	// Build transaction body
 	txBody := map[string]interface{}{
@@ -265,12 +282,12 @@ func (s *Service) broadcastTransaction(txData map[string]interface{}) (string, e
 
 // ValidateAddress validates a AURA testnet address
 func (s *Service) ValidateAddress(address string) error {
-	if len(address) < 44 || len(address) > 64 {
+	if len(address) < 43 || len(address) > 64 {
 		return fmt.Errorf("invalid address length")
 	}
 
-	if !strings.HasPrefix(address, "auratest1") {
-		return fmt.Errorf("address must start with auratest1")
+	if !strings.HasPrefix(address, "aura1") {
+		return fmt.Errorf("address must start with aura1")
 	}
 
 	// Additional validation could be added here
