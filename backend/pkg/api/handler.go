@@ -15,6 +15,7 @@ import (
 	"github.com/aura-chain/aura/faucet/pkg/config"
 	"github.com/aura-chain/aura/faucet/pkg/database"
 	"github.com/aura-chain/aura/faucet/pkg/faucet"
+	metrics "github.com/aura-chain/aura/faucet/pkg/prometheus"
 	"github.com/aura-chain/aura/faucet/pkg/ratelimit"
 )
 
@@ -74,13 +75,15 @@ func (h *Handler) Health(c *gin.Context) {
 		return
 	}
 
-	// Check Redis
-	if _, err := h.rateLimiter.GetCurrentCount(ctx, "health_check"); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "unhealthy",
-			"error":  "redis unreachable",
-		})
-		return
+	// Check Redis (if configured)
+	if h.rateLimiter != nil {
+		if _, err := h.rateLimiter.GetCurrentCount(ctx, "health_check"); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "unhealthy",
+				"error":  "redis unreachable",
+			})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -166,9 +169,11 @@ func (h *Handler) GetRecentTransactions(c *gin.Context) {
 // RequestTokens handles token request
 func (h *Handler) RequestTokens(c *gin.Context) {
 	ctx := context.Background()
+	start := time.Now()
 
 	var req TokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request format",
 		})
@@ -185,6 +190,7 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 
 	// Validate address
 	if err := h.faucet.ValidateAddress(req.Address); err != nil {
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid address format",
 		})
@@ -193,12 +199,16 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 
 	// Enforce allowlists when configured (devnet access control)
 	if !addressAllowed(req.Address, h.cfg.AllowedAddresses) {
+		metrics.BlockedRequests.WithLabelValues("allowlist").Inc()
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": "Address is not allowed to use this faucet",
 		})
 		return
 	}
 	if !ipAllowed(clientIP, h.cfg.AllowedIPs) {
+		metrics.BlockedRequests.WithLabelValues("ip").Inc()
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": "IP is not allowed to use this faucet",
 		})
@@ -208,14 +218,18 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	// Verify captcha when required
 	if h.cfg.RequireCaptcha {
 		if !h.verifyCaptcha(req.CaptchaToken, clientIP) {
+			metrics.CaptchaAttempts.WithLabelValues("fail").Inc()
+			metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "Captcha verification failed",
 			})
 			return
 		}
+		metrics.CaptchaAttempts.WithLabelValues("pass").Inc()
 	}
 
 	if h.rateLimiter == nil || h.db == nil {
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"error": "Service dependencies not configured",
 		})
@@ -226,6 +240,7 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	ipLimited, err := h.rateLimiter.CheckIPLimit(ctx, clientIP)
 	if err != nil {
 		log.WithError(err).Error("Failed to check IP rate limit")
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal server error",
 		})
@@ -233,6 +248,8 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	}
 
 	if ipLimited {
+		metrics.RateLimitHits.WithLabelValues("ip").Inc()
+		metrics.RecordRequest("rate_limited", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": "Too many requests from your IP address. Please try again later.",
 		})
@@ -243,6 +260,7 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	addressLimited, err := h.rateLimiter.CheckAddressLimit(ctx, req.Address)
 	if err != nil {
 		log.WithError(err).Error("Failed to check address rate limit")
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Internal server error",
 		})
@@ -250,6 +268,8 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	}
 
 	if addressLimited {
+		metrics.RateLimitHits.WithLabelValues("address").Inc()
+		metrics.RecordRequest("rate_limited", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": "This address has already received tokens recently. Please wait 24 hours.",
 		})
@@ -262,6 +282,8 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	if err != nil {
 		log.WithError(err).Error("Failed to check address history")
 	} else if len(dbRequests) > 0 {
+		metrics.RateLimitHits.WithLabelValues("daily").Inc()
+		metrics.RecordRequest("rate_limited", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": "This address has already received tokens in the last 24 hours.",
 		})
@@ -273,12 +295,15 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 		balance, err := h.faucet.GetAddressBalance(req.Address)
 		if err != nil {
 			log.WithError(err).Error("Failed to check recipient balance")
+			metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"error": "Unable to verify recipient balance at this time",
 			})
 			return
 		}
 		if balance >= h.cfg.MaxRecipientBalance {
+			metrics.BlockedRequests.WithLabelValues("balance_cap").Inc()
+			metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Address balance is above faucet eligibility threshold",
 			})
@@ -296,6 +321,7 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	resp, err := h.faucet.SendTokens(sendReq)
 	if err != nil {
 		log.WithError(err).Error("Failed to send tokens")
+		metrics.RecordRequest("failed", h.cfg.Denom, 0, time.Since(start).Seconds())
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to send tokens. Please try again later.",
 		})
@@ -310,6 +336,10 @@ func (h *Handler) RequestTokens(c *gin.Context) {
 	if err := h.rateLimiter.IncrementAddressCounter(ctx, req.Address); err != nil {
 		log.WithError(err).Error("Failed to increment address counter")
 	}
+
+	// Record successful request
+	metrics.RecordRequest("success", h.cfg.Denom, h.cfg.AmountPerRequest, time.Since(start).Seconds())
+	metrics.UniqueAddresses.Inc()
 
 	c.JSON(http.StatusOK, gin.H{
 		"tx_hash":   resp.TxHash,

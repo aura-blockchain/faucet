@@ -31,7 +31,7 @@ func TestE2EFaucetFlow(t *testing.T) {
 	cfg := &config.Config{
 		NodeRPC:             "http://localhost:26657",
 		ChainID:             "test-chain",
-		FaucetAddress:       "auratest1testfaucetaddress123456789",
+		FaucetAddress:       "aura1testfaucetaddress123456789",
 		AmountPerRequest:     100000000,
 		Environment:         "development",
 		DatabaseURL:         "postgres://faucet:faucet@localhost:5432/faucet_test?sslmode=disable",
@@ -123,7 +123,7 @@ func TestE2EFaucetFlow(t *testing.T) {
 
 	// Test 4: Token request with validation
 	t.Run("TokenRequest", func(t *testing.T) {
-		testAddress := "auratest1testaddress12345678901234567890"
+		testAddress := "aura1testaddress12345678901234567890"
 
 		payload := map[string]string{
 			"address":       testAddress,
@@ -183,10 +183,10 @@ func TestE2EDatabaseOperations(t *testing.T) {
 
 	t.Run("CreateAndUpdateRequest", func(t *testing.T) {
 		// Create request
-		req, err := db.CreateRequest("auratest1test123", "192.168.1.1", 100000000)
+		req, err := db.CreateRequest("aura1test123", "192.168.1.1", 100000000)
 		require.NoError(t, err)
 		assert.NotZero(t, req.ID)
-		assert.Equal(t, "auratest1test123", req.Recipient)
+		assert.Equal(t, "aura1test123", req.Recipient)
 		assert.Equal(t, "pending", req.Status)
 
 		// Update as successful

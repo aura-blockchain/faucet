@@ -96,7 +96,7 @@ func TestCheckAddressLimit(t *testing.T) {
 	rl := NewRateLimiter(client, config)
 	ctx := context.Background()
 
-	address := "auratest1test123456789"
+	address := "aura1test123456789"
 
 	// First check - should not be limited
 	limited, err := rl.CheckAddressLimit(ctx, address)

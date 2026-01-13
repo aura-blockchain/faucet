@@ -13,7 +13,7 @@ func TestValidateAddress(t *testing.T) {
 	cfg := &config.Config{
 		NodeRPC:         "http://localhost:26657",
 		ChainID:         "test-chain",
-		FaucetAddress:   "auratest1test",
+		FaucetAddress:   "aura1test",
 		AmountPerRequest: 100,
 	}
 
@@ -28,12 +28,12 @@ func TestValidateAddress(t *testing.T) {
 	}{
 		{
 			name:    "valid address",
-			address: "auratest1qwertyuiopasdfghjklzxcvbnm123456789test",
+			address: "aura1qwertyuiopasdfghjklzxcvbnm123456789test",
 			wantErr: false,
 		},
 		{
 			name:    "too short",
-			address: "auratest1short",
+			address: "aura1short",
 			wantErr: true,
 		},
 		{
@@ -48,7 +48,7 @@ func TestValidateAddress(t *testing.T) {
 		},
 		{
 			name:    "too long",
-			address: "auratest1" + string(make([]byte, 100)),
+			address: "aura1" + string(make([]byte, 100)),
 			wantErr: true,
 		},
 	}
@@ -69,7 +69,7 @@ func TestNewService(t *testing.T) {
 	cfg := &config.Config{
 		NodeRPC:         "http://localhost:26657",
 		ChainID:         "test-chain",
-		FaucetAddress:   "auratest1test",
+		FaucetAddress:   "aura1test",
 		AmountPerRequest: 100,
 	}
 

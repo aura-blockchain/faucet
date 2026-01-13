@@ -12,12 +12,14 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/aura-chain/aura/faucet/pkg/api"
 	"github.com/aura-chain/aura/faucet/pkg/config"
 	"github.com/aura-chain/aura/faucet/pkg/database"
 	"github.com/aura-chain/aura/faucet/pkg/faucet"
+	metrics "github.com/aura-chain/aura/faucet/pkg/prometheus"
 	"github.com/aura-chain/aura/faucet/pkg/ratelimit"
 )
 
@@ -64,28 +66,38 @@ func main() {
 		"amount_per_request": cfg.AmountPerRequest,
 	}).Info("Configuration loaded")
 
-	// Initialize database
-	db, err := database.NewPostgresDB(cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	// Initialize database (optional)
+	var db *database.DB
+	if cfg.DatabaseURL != "" {
+		db, err = database.NewPostgresDB(cfg.DatabaseURL)
+		if err != nil {
+			log.Warnf("Failed to connect to database: %v (continuing without database)", err)
+		} else {
+			defer db.Close()
+			// Run database migrations
+			if err := db.Migrate(); err != nil {
+				log.Warnf("Failed to run database migrations: %v", err)
+			} else {
+				log.Info("Database migrations completed")
+			}
+		}
+	} else {
+		log.Info("No DATABASE_URL configured, running without database")
 	}
-	defer db.Close()
 
-	// Run database migrations
-	if err := db.Migrate(); err != nil {
-		log.Fatalf("Failed to run database migrations: %v", err)
+	// Initialize Redis for rate limiting (optional)
+	var rateLimiter *ratelimit.RateLimiter
+	if cfg.RedisURL != "" {
+		redisClient, err := ratelimit.NewRedisClient(cfg.RedisURL)
+		if err != nil {
+			log.Warnf("Failed to connect to Redis: %v (continuing without Redis rate limiting)", err)
+		} else {
+			defer redisClient.Close()
+			rateLimiter = ratelimit.NewRateLimiter(redisClient, cfg.RateLimitConfig())
+		}
+	} else {
+		log.Info("No REDIS_URL configured, running without Redis rate limiting")
 	}
-	log.Info("Database migrations completed")
-
-	// Initialize Redis for rate limiting
-	redisClient, err := ratelimit.NewRedisClient(cfg.RedisURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
-	}
-	defer redisClient.Close()
-
-	// Initialize rate limiter
-	rateLimiter := ratelimit.NewRateLimiter(redisClient, cfg.RateLimitConfig())
 
 	// Initialize faucet service
 	faucetService, err := faucet.NewService(cfg, db)
@@ -100,6 +112,12 @@ func main() {
 	} else {
 		log.WithField("balance", balance).Info("Faucet initialized")
 	}
+
+	// Initialize Prometheus metrics
+	metrics.SetInfo(cfg.Version, cfg.ChainID, cfg.Denom)
+
+	// Start balance and node status monitor goroutine
+	go monitorBalanceAndNode(cfg, faucetService)
 
 	// Setup Gin router
 	if cfg.Environment == "production" {
@@ -123,6 +141,9 @@ func main() {
 
 	// Initialize API handlers
 	apiHandler := api.NewHandler(cfg, faucetService, rateLimiter, db)
+
+	// Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// API routes
 	v1 := router.Group("/api/v1")
@@ -214,5 +235,37 @@ func loggingMiddleware() gin.HandlerFunc {
 			"latency":    latency.Milliseconds(),
 			"user_agent": c.Request.UserAgent(),
 		}).Info("HTTP request")
+	}
+}
+
+// monitorBalanceAndNode periodically updates balance and node status metrics
+func monitorBalanceAndNode(cfg *config.Config, svc *faucet.Service) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Initial update
+	updateMetrics(cfg, svc)
+
+	for range ticker.C {
+		updateMetrics(cfg, svc)
+	}
+}
+
+func updateMetrics(cfg *config.Config, svc *faucet.Service) {
+	// Update balance
+	balance, err := svc.GetBalance()
+	if err != nil {
+		log.WithError(err).Debug("Failed to get faucet balance for metrics")
+	} else {
+		metrics.UpdateBalance(cfg.Denom, balance)
+	}
+
+	// Update node status
+	status, err := svc.GetNodeStatus()
+	if err != nil {
+		log.WithError(err).Debug("Failed to get node status for metrics")
+		metrics.UpdateNodeStatus(cfg.ChainID, false, false)
+	} else {
+		metrics.UpdateNodeStatus(cfg.ChainID, true, !status.SyncInfo.CatchingUp)
 	}
 }
