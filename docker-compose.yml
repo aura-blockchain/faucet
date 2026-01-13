@@ -51,7 +51,7 @@ services:
 
       # Blockchain configuration
       NODE_RPC: "${NODE_RPC:-http://localhost:26657}"
-      CHAIN_ID: "${CHAIN_ID:-aura-testnet-1}"
+      CHAIN_ID: "${CHAIN_ID:-aura-mvp-1}"
       FAUCET_MNEMONIC: "${FAUCET_MNEMONIC}"
       FAUCET_ADDRESS: "${FAUCET_ADDRESS}"
       DENOM: "${DENOM:-uaura}"

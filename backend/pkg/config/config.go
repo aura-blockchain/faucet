@@ -14,12 +14,18 @@ type Config struct {
 	Port        string
 	Environment string
 	CORSOrigins []string
+	Version     string
 
 	// Blockchain configuration
 	NodeRPC          string
+	NodeREST         string
 	ChainID          string
 	FaucetMnemonic   string
 	FaucetAddress    string
+	FaucetBinary     string
+	FaucetHome       string
+	FaucetKey        string
+	FaucetKeyring    string
 	Denom            string
 	AmountPerRequest int64
 
@@ -56,12 +62,18 @@ func Load() (*Config, error) {
 		Port:        getEnv("PORT", "8080"),
 		Environment: environment,
 		CORSOrigins: strings.Split(getEnv("CORS_ORIGINS", "*"), ","),
+		Version:     getEnv("FAUCET_VERSION", "1.0.0"),
 
 		NodeRPC:          getEnv("NODE_RPC", "http://localhost:26657"),
-		ChainID:          getEnv("CHAIN_ID", "aura-testnet-1"),
+		NodeREST:         getEnv("NODE_REST", getEnv("NODE_API", "http://localhost:1317")),
+		ChainID:          getEnv("CHAIN_ID", "aura-mvp-1"),
 		FaucetMnemonic:   getEnv("FAUCET_MNEMONIC", ""),
 		FaucetAddress:    getEnv("FAUCET_ADDRESS", ""),
-		Denom:            getEnv("DENOM", "uaura"),
+		FaucetBinary:     getEnv("FAUCET_BINARY", ""),
+		FaucetHome:       getEnv("FAUCET_HOME", ""),
+		FaucetKey:        getEnv("FAUCET_KEY", ""),
+		FaucetKeyring:    getEnv("FAUCET_KEYRING", "test"),
+		Denom:            getEnv("DENOM", getEnv("FAUCET_DENOM", "uaura")),
 		AmountPerRequest: getEnvAsInt64("AMOUNT_PER_REQUEST", 100000000), // 100 AURA
 
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://faucet:faucet@localhost:5432/faucet?sslmode=disable"),
@@ -96,17 +108,21 @@ func (c *Config) Validate() error {
 		return errors.New("CHAIN_ID is required")
 	}
 
-	if c.FaucetMnemonic == "" && c.FaucetAddress == "" {
-		return errors.New("either FAUCET_MNEMONIC or FAUCET_ADDRESS is required")
+	// Support both modes: direct key management (FAUCET_MNEMONIC/FAUCET_ADDRESS)
+	// or binary-based execution (FAUCET_BINARY/FAUCET_KEY)
+	hasMnemonicOrAddress := c.FaucetMnemonic != "" || c.FaucetAddress != ""
+	hasBinaryKey := c.FaucetBinary != "" && c.FaucetKey != ""
+	if !hasMnemonicOrAddress && !hasBinaryKey {
+		return errors.New("either FAUCET_MNEMONIC/FAUCET_ADDRESS or FAUCET_BINARY/FAUCET_KEY is required")
 	}
 
-	if c.DatabaseURL == "" {
-		return errors.New("DATABASE_URL is required")
-	}
-
-	if c.RedisURL == "" {
-		return errors.New("REDIS_URL is required")
-	}
+	// Database and Redis are optional - if not provided, in-memory tracking is used
+	// if c.DatabaseURL == "" {
+	// 	return errors.New("DATABASE_URL is required")
+	// }
+	// if c.RedisURL == "" {
+	// 	return errors.New("REDIS_URL is required")
+	// }
 
 	if c.AmountPerRequest <= 0 {
 		return errors.New("AMOUNT_PER_REQUEST must be positive")

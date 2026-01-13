@@ -9,7 +9,7 @@ class AuraFaucet {
       testnet: {
         name: 'Testnet',
         endpoint: 'http://localhost:8080/api',
-        chainId: 'aura-testnet-1'
+        chainId: 'aura-mvp-1'
       },
       devnet: {
         name: 'Devnet',

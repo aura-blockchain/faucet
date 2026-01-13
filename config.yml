@@ -1,0 +1,55 @@
+# AURA Testnet Faucet Configuration
+# This is the canonical source for faucet operational parameters.
+# Environment variables override these values in production.
+
+# Network Configuration
+chain_id: "aura-mvp-1"
+denom: "uaura"
+prefix: "aura"
+
+# Node Endpoints
+node_rpc: "http://127.0.0.1:10657"
+node_rest: "http://127.0.0.1:10317"
+
+# Faucet Wallet (set via environment variables in production)
+# faucet_address: "aura1..."  # Set via FAUCET_ADDRESS env var
+# faucet_mnemonic: ""         # Set via FAUCET_MNEMONIC env var (NEVER commit)
+
+# Token Distribution
+amount_per_request: 200000000    # 200 AURA (in uaura)
+daily_faucet_cap: 40000000000    # 40,000 AURA daily limit (in uaura)
+max_recipient_balance: 1000000000  # 1,000 AURA - users with more are ineligible
+
+# Rate Limiting - Per Address
+address_cooldown_hours: 4        # Minimum hours between requests from same address
+address_window_seconds: 86400    # 24-hour rolling window
+address_max_per_window: 2        # Max requests per address in window
+
+# Rate Limiting - Per IP
+ip_cooldown_seconds: 0           # No IP cooldown (use window limits)
+ip_window_seconds: 86400         # 24-hour rolling window
+ip_max_per_window: 5             # Max requests per IP in window
+
+# Transaction Settings
+gas_limit: 200000
+gas_price: "0.001uaura"
+transaction_memo: "AURA Testnet Faucet"
+
+# Captcha (Cloudflare Turnstile)
+require_captcha: true
+# turnstile_secret: ""  # Set via TURNSTILE_SECRET env var (NEVER commit)
+
+# Access Control (empty = open to all)
+allowed_ips: []        # Restrict to specific IPs (CIDR supported)
+allowed_addresses: []  # Restrict to specific wallet addresses
+
+# Timezone for daily cap reset
+daily_cap_timezone: "America/New_York"
+
+# Server Configuration
+port: 8080
+environment: "production"
+log_level: "info"
+cors_origins:
+  - "https://testnet-faucet.aurablockchain.org"
+  - "https://aurablockchain.org"
