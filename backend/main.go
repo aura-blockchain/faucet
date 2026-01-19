@@ -148,8 +148,10 @@ func main() {
 	// API routes
 	v1 := router.Group("/api/v1")
 	{
-		// Health check
+		// Health check endpoints (Kubernetes-compatible)
 		v1.GET("/health", apiHandler.Health)
+		v1.GET("/ready", apiHandler.Ready)
+		v1.GET("/live", apiHandler.Live)
 
 		// Faucet endpoints
 		faucetGroup := v1.Group("/faucet")

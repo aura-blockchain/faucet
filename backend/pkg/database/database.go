@@ -14,6 +14,17 @@ type DB struct {
 	conn *sql.DB
 }
 
+// NewWithConn constructs a DB wrapper from an existing sql.DB.
+// Intended for testing with sqlmock.
+func NewWithConn(conn *sql.DB) *DB {
+	return &DB{conn: conn}
+}
+
+// NewWithSQL wraps an existing *sql.DB (used primarily for testing/mocking).
+func NewWithSQL(conn *sql.DB) *DB {
+	return &DB{conn: conn}
+}
+
 // FaucetRequest represents a faucet request record
 type FaucetRequest struct {
 	ID          int64     `json:"id"`

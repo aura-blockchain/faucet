@@ -16,14 +16,32 @@ import (
 	"github.com/aura-chain/aura/faucet/pkg/database"
 	"github.com/aura-chain/aura/faucet/pkg/faucet"
 	metrics "github.com/aura-chain/aura/faucet/pkg/prometheus"
-	"github.com/aura-chain/aura/faucet/pkg/ratelimit"
 )
+
+// FaucetService describes the faucet behaviors required by the API layer.
+// Using an interface makes the handler easier to unit test.
+type FaucetService interface {
+	ValidateAddress(address string) error
+	GetNodeStatus() (*faucet.NodeStatus, error)
+	GetBalance() (int64, error)
+	GetAddressBalance(address string) (int64, error)
+	SendTokens(req *faucet.SendRequest) (*faucet.SendResponse, error)
+}
+
+// RateLimiter abstracts the redis-backed rate limiter so we can stub it in tests.
+type RateLimiter interface {
+	CheckIPLimit(ctx context.Context, ip string) (bool, error)
+	CheckAddressLimit(ctx context.Context, address string) (bool, error)
+	IncrementIPCounter(ctx context.Context, ip string) error
+	IncrementAddressCounter(ctx context.Context, address string) error
+	GetCurrentCount(ctx context.Context, key string) (int, error)
+}
 
 // Handler handles HTTP requests
 type Handler struct {
 	cfg         *config.Config
-	faucet      *faucet.Service
-	rateLimiter *ratelimit.RateLimiter
+	faucet      FaucetService
+	rateLimiter RateLimiter
 	db          *database.DB
 }
 
@@ -42,7 +60,7 @@ type TurnstileResponse struct {
 }
 
 // NewHandler creates a new API handler
-func NewHandler(cfg *config.Config, faucetService *faucet.Service, rateLimiter *ratelimit.RateLimiter, db *database.DB) *Handler {
+func NewHandler(cfg *config.Config, faucetService FaucetService, rateLimiter RateLimiter, db *database.DB) *Handler {
 	return &Handler{
 		cfg:         cfg,
 		faucet:      faucetService,
@@ -51,45 +69,129 @@ func NewHandler(cfg *config.Config, faucetService *faucet.Service, rateLimiter *
 	}
 }
 
-// Health returns the health status of the service
+// Health returns the comprehensive health status of the service (Kubernetes-compatible)
 func (h *Handler) Health(c *gin.Context) {
 	ctx := context.Background()
 
-	// Check node status
-	status, err := h.faucet.GetNodeStatus()
-	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "unhealthy",
-			"error":  "blockchain node unreachable",
-		})
-		return
+	checks := map[string]bool{
+		"node_reachable": false,
+		"node_synced":    false,
+		"redis_ready":    false,
+		"database_ready": false,
 	}
 
-	// Check if node is syncing
-	if status.SyncInfo.CatchingUp {
-		c.JSON(http.StatusOK, gin.H{
-			"status":  "syncing",
-			"network": status.NodeInfo.Network,
-			"height":  status.SyncInfo.LatestBlockHeight,
-		})
-		return
+	var nodeNetwork string
+	var nodeHeight string
+
+	// Check node status
+	status, err := h.faucet.GetNodeStatus()
+	if err == nil {
+		checks["node_reachable"] = true
+		nodeNetwork = status.NodeInfo.Network
+		nodeHeight = status.SyncInfo.LatestBlockHeight
+		checks["node_synced"] = !status.SyncInfo.CatchingUp
 	}
 
 	// Check Redis (if configured)
 	if h.rateLimiter != nil {
-		if _, err := h.rateLimiter.GetCurrentCount(ctx, "health_check"); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status": "unhealthy",
-				"error":  "redis unreachable",
-			})
-			return
+		if _, err := h.rateLimiter.GetCurrentCount(ctx, "health_check"); err == nil {
+			checks["redis_ready"] = true
+		}
+	} else {
+		checks["redis_ready"] = true // Not configured, so not required
+	}
+
+	// Check database
+	if h.db != nil {
+		if _, err := h.db.GetStatistics(); err == nil {
+			checks["database_ready"] = true
 		}
 	}
 
+	// Determine overall status
+	criticalChecks := []string{"node_reachable"}
+	warningChecks := []string{"node_synced", "redis_ready", "database_ready"}
+
+	criticalFailed := false
+	for _, check := range criticalChecks {
+		if !checks[check] {
+			criticalFailed = true
+			break
+		}
+	}
+
+	warningFailed := false
+	for _, check := range warningChecks {
+		if !checks[check] {
+			warningFailed = true
+			break
+		}
+	}
+
+	var overallStatus string
+	var httpStatus int
+	if criticalFailed {
+		overallStatus = "unhealthy"
+		httpStatus = http.StatusServiceUnavailable
+	} else if warningFailed {
+		overallStatus = "degraded"
+		httpStatus = http.StatusOK
+	} else {
+		overallStatus = "healthy"
+		httpStatus = http.StatusOK
+	}
+
+	c.JSON(httpStatus, gin.H{
+		"status":  overallStatus,
+		"version": "1.0.0",
+		"network": nodeNetwork,
+		"height":  nodeHeight,
+		"checks":  checks,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// Ready returns the readiness status (Kubernetes readiness probe)
+func (h *Handler) Ready(c *gin.Context) {
+	ctx := context.Background()
+
+	checks := map[string]bool{
+		"node_reachable": false,
+		"redis_ready":    false,
+	}
+
+	// Check node is reachable (doesn't need to be synced for readiness)
+	if _, err := h.faucet.GetNodeStatus(); err == nil {
+		checks["node_reachable"] = true
+	}
+
+	// Check Redis (if configured)
+	if h.rateLimiter != nil {
+		if _, err := h.rateLimiter.GetCurrentCount(ctx, "health_check"); err == nil {
+			checks["redis_ready"] = true
+		}
+	} else {
+		checks["redis_ready"] = true
+	}
+
+	isReady := checks["node_reachable"] && checks["redis_ready"]
+	httpStatus := http.StatusOK
+	if !isReady {
+		httpStatus = http.StatusServiceUnavailable
+	}
+
+	c.JSON(httpStatus, gin.H{
+		"ready":     isReady,
+		"checks":    checks,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// Live returns the liveness status (Kubernetes liveness probe)
+func (h *Handler) Live(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "healthy",
-		"network": status.NodeInfo.Network,
-		"height":  status.SyncInfo.LatestBlockHeight,
+		"alive":     true,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 }
 

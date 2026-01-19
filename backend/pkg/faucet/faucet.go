@@ -2,10 +2,13 @@ package faucet
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -205,13 +208,140 @@ func (s *Service) GetNodeStatus() (*NodeStatus, error) {
 
 // broadcastTransaction broadcasts a transaction to the blockchain
 func (s *Service) broadcastTransaction(txData map[string]interface{}) (string, error) {
-	// This is a simplified version. In production, you would:
-	// 1. Sign the transaction using the faucet's private key
-	// 2. Encode it properly according to Cosmos SDK format
-	// 3. Broadcast via the /cosmos/tx/v1beta1/txs endpoint
+	// Use CLI binary if configured (preferred method for signing)
+	if s.cfg.FaucetBinary != "" && s.cfg.FaucetKey != "" {
+		return s.broadcastViaCLI(txData)
+	}
 
-	// For now, we'll simulate the transaction
-	// In a real implementation, use the Cosmos SDK Go client
+	// Fallback to REST API (requires mnemonic-based signing, not implemented)
+	return s.broadcastViaREST(txData)
+}
+
+// broadcastViaCLI executes a transaction using the chain binary CLI
+func (s *Service) broadcastViaCLI(txData map[string]interface{}) (string, error) {
+	recipient := txData["to"].(string)
+	amount := txData["amount"].([]map[string]string)
+	amountStr := fmt.Sprintf("%s%s", amount[0]["amount"], amount[0]["denom"])
+
+	// Build command arguments
+	args := []string{
+		"tx", "bank", "send",
+		s.cfg.FaucetKey,
+		recipient,
+		amountStr,
+		"--chain-id", s.cfg.ChainID,
+		"--keyring-backend", s.cfg.FaucetKeyring,
+		"--yes",
+		"--output", "json",
+		"--gas", fmt.Sprintf("%d", s.cfg.GasLimit),
+		"--gas-prices", s.cfg.GasPrice,
+	}
+
+	// Add home directory if specified
+	if s.cfg.FaucetHome != "" {
+		args = append(args, "--home", s.cfg.FaucetHome)
+	}
+
+	// Add node RPC if specified
+	if s.cfg.NodeRPC != "" {
+		args = append(args, "--node", s.cfg.NodeRPC)
+	}
+
+	// Add memo if specified
+	if memo, ok := txData["memo"].(string); ok && memo != "" {
+		args = append(args, "--note", memo)
+	}
+
+	log.WithFields(log.Fields{
+		"binary":    s.cfg.FaucetBinary,
+		"args":      strings.Join(args, " "),
+		"recipient": recipient,
+		"amount":    amountStr,
+	}).Debug("Executing CLI transaction")
+
+	// Execute with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.cfg.FaucetBinary, args...)
+
+	// Capture both stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	stdoutStr := stdout.String()
+	stderrStr := stderr.String()
+
+	log.WithFields(log.Fields{
+		"stdout": stdoutStr,
+		"stderr": stderrStr,
+		"error":  err,
+	}).Debug("CLI execution result")
+
+	if err != nil {
+		// Check if the error contains useful information
+		errMsg := stderrStr
+		if errMsg == "" {
+			errMsg = stdoutStr
+		}
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		return "", fmt.Errorf("CLI execution failed: %s", errMsg)
+	}
+
+	// Parse the JSON output to extract tx hash
+	txHash, parseErr := parseTxHashFromOutput(stdoutStr)
+	if parseErr != nil {
+		// Sometimes the tx hash appears in a different format or in stderr
+		txHash, parseErr = parseTxHashFromOutput(stderrStr)
+		if parseErr != nil {
+			log.WithFields(log.Fields{
+				"stdout": stdoutStr,
+				"stderr": stderrStr,
+			}).Warn("Could not parse tx hash from CLI output")
+			return "", fmt.Errorf("transaction submitted but could not parse tx hash: %s", stdoutStr)
+		}
+	}
+
+	return txHash, nil
+}
+
+// parseTxHashFromOutput extracts the transaction hash from CLI output
+func parseTxHashFromOutput(output string) (string, error) {
+	// Try to parse as JSON first
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(output), &result); err == nil {
+		// Check for txhash in top level
+		if txHash, ok := result["txhash"].(string); ok && txHash != "" {
+			return txHash, nil
+		}
+		// Check for tx_response.txhash
+		if txResponse, ok := result["tx_response"].(map[string]interface{}); ok {
+			if txHash, ok := txResponse["txhash"].(string); ok && txHash != "" {
+				return txHash, nil
+			}
+		}
+	}
+
+	// Try to find txhash with regex (backup method)
+	// Matches patterns like: "txhash": "ABC123..." or txhash: ABC123
+	re := regexp.MustCompile(`"?txhash"?\s*[=:]\s*"?([A-Fa-f0-9]{64})"?`)
+	matches := re.FindStringSubmatch(output)
+	if len(matches) >= 2 {
+		return matches[1], nil
+	}
+
+	return "", fmt.Errorf("no transaction hash found in output")
+}
+
+// broadcastViaREST broadcasts a transaction via REST API (requires proper signing)
+func (s *Service) broadcastViaREST(txData map[string]interface{}) (string, error) {
+	// This method requires a signed transaction
+	// For now, return an error suggesting CLI mode should be used
+	log.Warn("REST broadcast requires signed transactions; configure FAUCET_BINARY for CLI mode")
 
 	// Use REST API endpoint (port 1317) for transaction broadcasting via gRPC-gateway
 	restURL := s.cfg.NodeREST
@@ -220,7 +350,7 @@ func (s *Service) broadcastTransaction(txData map[string]interface{}) (string, e
 	}
 	url := fmt.Sprintf("%s/cosmos/tx/v1beta1/txs", restURL)
 
-	// Build transaction body
+	// Build transaction body (note: this will fail without proper auth_info and signatures)
 	txBody := map[string]interface{}{
 		"body": map[string]interface{}{
 			"messages": []map[string]interface{}{
@@ -273,11 +403,7 @@ func (s *Service) broadcastTransaction(txData map[string]interface{}) (string, e
 		}
 	}
 
-	// For testing purposes, generate a mock tx hash
-	mockTxHash := fmt.Sprintf("MOCK_%d", time.Now().Unix())
-	log.Warn("Using mock transaction hash for testing")
-
-	return mockTxHash, nil
+	return "", fmt.Errorf("no transaction hash in response: %s", string(body))
 }
 
 // ValidateAddress validates a AURA testnet address

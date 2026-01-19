@@ -228,10 +228,10 @@ function validateAddress() {
         return false;
     }
 
-    // Check if address matches pattern
-    const addressPattern = /^auratest1[a-z0-9]{38,58}$/;
+    // Check if address matches pattern (aura1 prefix for mainnet/testnet)
+    const addressPattern = /^aura1[a-z0-9]{38,58}$/;
     if (!addressPattern.test(address)) {
-        errorElement.textContent = 'Invalid AURA address format. Address must start with "auratest1"';
+        errorElement.textContent = 'Invalid AURA address format. Address must start with "aura1"';
         errorElement.classList.add('show');
         return false;
     }

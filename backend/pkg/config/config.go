@@ -8,6 +8,20 @@ import (
 	"time"
 )
 
+// PORT SENTINEL REQUIRED FOR PRODUCTION
+// -----------------------------------------------------------------------------
+// Default port values in this file are for LOCAL DEVELOPMENT ONLY.
+// For production deployments, ALL ports must be allocated via Port Sentinel
+// to prevent conflicts with other services:
+//
+//   python scripts/port_sentinel.py allocate faucet_backend --project aura
+//   python scripts/port_sentinel.py allocate faucet_node_rpc --project aura
+//   python scripts/port_sentinel.py allocate faucet_node_rest --project aura
+//
+// Then set PORT, NODE_RPC, NODE_REST environment variables accordingly.
+// Run `python scripts/port_sentinel.py verify` before AND after config changes.
+// -----------------------------------------------------------------------------
+
 // Config holds all application configuration
 type Config struct {
 	// Server configuration
@@ -59,11 +73,13 @@ type Config struct {
 func Load() (*Config, error) {
 	environment := getEnv("ENVIRONMENT", "development")
 	cfg := &Config{
+		// DEV ONLY defaults - use Port Sentinel for production port allocation
 		Port:        getEnv("PORT", "8080"),
 		Environment: environment,
 		CORSOrigins: strings.Split(getEnv("CORS_ORIGINS", "*"), ","),
 		Version:     getEnv("FAUCET_VERSION", "1.0.0"),
 
+		// DEV ONLY defaults - production MUST use Port Sentinel allocated ports
 		NodeRPC:          getEnv("NODE_RPC", "http://localhost:26657"),
 		NodeREST:         getEnv("NODE_REST", getEnv("NODE_API", "http://localhost:1317")),
 		ChainID:          getEnv("CHAIN_ID", "aura-mvp-1"),
