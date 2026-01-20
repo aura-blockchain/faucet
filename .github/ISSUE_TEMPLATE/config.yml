@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security Vulnerability
+    url: https://github.com/aura-blockchain/aura/security/advisories/new
+    about: Report security issues privately - DO NOT create public issues for vulnerabilities
+  - name: Questions & Support
+    url: https://discord.gg/aura
+    about: Get help on Discord - for questions, not bug reports
+  - name: Documentation Issue
+    url: https://github.com/aura-blockchain/docs/issues/new
+    about: Report documentation problems in the docs repository

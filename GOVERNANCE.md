@@ -7,10 +7,10 @@
 
 ## Decision Making
 
-| Change Type | Approval Required |
-|-------------|-------------------|
-| Bug fixes | 1 maintainer |
-| New features | 2 maintainers |
+| Change Type      | Approval Required   |
+| ---------------- | ------------------- |
+| Bug fixes        | 1 maintainer        |
+| New features     | 2 maintainers       |
 | Breaking changes | Core team consensus |
 
 ## Release Process

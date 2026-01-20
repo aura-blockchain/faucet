@@ -1,0 +1,32 @@
+# Aura Blockchain CODEOWNERS
+# These owners will be requested for review on PRs
+
+# Default owners for everything
+* @aura-blockchain/core-team
+
+# Chain/consensus code - requires security review
+/chain/app/ @aura-blockchain/core-team @aura-blockchain/security
+/chain/x/ @aura-blockchain/core-team
+
+# Security-critical modules
+/chain/x/identity/ @aura-blockchain/security @aura-blockchain/core-team
+/chain/x/vcregistry/ @aura-blockchain/security @aura-blockchain/core-team
+/chain/x/bridge/ @aura-blockchain/security @aura-blockchain/core-team
+
+# AI Network module
+/chain/x/aiassistant/ @aura-blockchain/ai-team @aura-blockchain/core-team
+
+# Infrastructure
+/.github/ @aura-blockchain/devops
+/docker/ @aura-blockchain/devops
+/k8s/ @aura-blockchain/devops
+/scripts/ @aura-blockchain/devops
+
+# Documentation
+/docs/ @aura-blockchain/docs-team
+README.md @aura-blockchain/core-team
+CONTRIBUTING.md @aura-blockchain/core-team
+SECURITY.md @aura-blockchain/security
+
+# Protect this file
+/.github/CODEOWNERS @aura-blockchain/admin

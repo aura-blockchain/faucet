@@ -181,4 +181,3 @@ func TestGetStatistics(t *testing.T) {
 	assert.Equal(t, int64(2), stats.RequestsLastHour)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
-

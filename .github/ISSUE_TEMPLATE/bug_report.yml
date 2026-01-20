@@ -1,0 +1,74 @@
+name: Bug Report
+description: Report a bug in Aura
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please provide as much detail as possible.
+
+        **Security vulnerabilities**: Do NOT report here. Email security@aura.network instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Aura Version
+      description: Output of `aurad version`
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: Clear description of what happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Start node with...
+        2. Send transaction...
+        3. Observe error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste relevant log output
+      render: shell
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      options:
+        - Testnet
+        - Mainnet
+        - Local Development
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Go version, hardware specs
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - Go: 1.21.0
+        - RAM: 16GB

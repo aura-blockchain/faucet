@@ -1,0 +1,86 @@
+name: Testnet Access Request
+description: Request access to the AURA testnet or testnet tokens
+title: "[TESTNET ACCESS] "
+labels: ["testnet", "access-request"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in the AURA testnet! Please fill out the form below to request access.
+
+  - type: input
+    id: wallet-address
+    attributes:
+      label: Wallet Address
+      description: Your AURA testnet wallet address (starts with auratest1)
+      placeholder: auratest1...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request Type
+      description: What type of access are you requesting?
+      options:
+        - Testnet tokens (faucet issues)
+        - Validator node setup
+        - Developer API access
+        - Smart contract deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Purpose
+      description: Briefly describe what you plan to build or test on the AURA testnet
+      placeholder: I'm building a...
+    validations:
+      required: true
+
+  - type: input
+    id: token-amount
+    attributes:
+      label: Token Amount Needed
+      description: If requesting tokens, how many AURA do you need? (Standard faucet provides 200 AURA)
+      placeholder: "200"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: experience
+    attributes:
+      label: Blockchain Experience
+      description: Your experience level with blockchain development
+      options:
+        - Beginner
+        - Intermediate
+        - Advanced
+        - Expert
+    validations:
+      required: true
+
+  - type: input
+    id: project-url
+    attributes:
+      label: Project URL
+      description: Link to your project repository or website (optional)
+      placeholder: https://github.com/...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I understand testnet tokens have no monetary value
+          required: true
+        - label: I will not use testnet resources for spam or malicious purposes
+          required: true
+        - label: I have read the [testnet documentation](https://docs.aurablockchain.org/testnet)
+          required: false
