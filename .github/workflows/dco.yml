@@ -1,0 +1,48 @@
+name: DCO Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dco-check:
+    name: Verify DCO Sign-off
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check DCO sign-off
+        uses: tisonkun/actions-dco@v1.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: DCO failure guidance
+        if: failure()
+        run: |
+          echo "========================================"
+          echo "DCO CHECK FAILED"
+          echo "========================================"
+          echo ""
+          echo "All commits must be signed off to indicate you agree"
+          echo "to the Developer Certificate of Origin (DCO)."
+          echo ""
+          echo "To sign off your commits, use:"
+          echo "  git commit -s -m 'your message'"
+          echo ""
+          echo "To fix existing commits:"
+          echo "  git commit --amend -s"
+          echo ""
+          echo "For multiple commits, see CONTRIBUTING.md"
+          echo ""
+          echo "DCO full text: https://developercertificate.org/"
+          echo "========================================"
+          exit 1

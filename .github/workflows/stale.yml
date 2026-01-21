@@ -1,0 +1,52 @@
+name: Stale Issue Management
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Manage Stale Issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark stale issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issues
+          stale-issue-message: |
+            This issue has been automatically marked as stale because it has not had recent activity.
+            It will be closed in 14 days if no further activity occurs.
+
+            If this issue is still relevant:
+            - Add a comment with any updates
+            - Remove the `stale` label
+
+            Thank you for your contributions to AURA!
+          stale-issue-label: 'stale'
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          exempt-issue-labels: 'pinned,security,bug,in-progress'
+
+          # Pull requests
+          stale-pr-message: |
+            This pull request has been automatically marked as stale because it has not had recent activity.
+            It will be closed in 14 days if no further activity occurs.
+
+            If this PR is still relevant:
+            - Rebase on main and resolve conflicts
+            - Add a comment with status update
+            - Remove the `stale` label
+          stale-pr-label: 'stale'
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          exempt-pr-labels: 'pinned,security,work-in-progress'
+
+          # Operations per run
+          operations-per-run: 100

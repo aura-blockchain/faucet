@@ -12,10 +12,10 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-added-large-files
-        args: ['--maxkb=1000']
+        args: ["--maxkb=1000"]
       - id: check-merge-conflict
       - id: mixed-line-ending
-        args: ['--fix=lf']
+        args: ["--fix=lf"]
       - id: check-case-conflict
       - id: check-symlinks
 
@@ -30,7 +30,7 @@ repos:
     hooks:
       - id: detect-secrets
         name: Detect secrets baseline
-        args: ['--baseline', '.secrets.baseline']
+        args: ["--baseline", ".secrets.baseline"]
 
   # Python formatting & linting
   - repo: https://github.com/psf/black
@@ -42,7 +42,7 @@ repos:
     rev: v0.1.13
     hooks:
       - id: ruff
-        args: ['--fix']
+        args: ["--fix"]
 
   # Frontend formatting
   - repo: https://github.com/pre-commit/mirrors-prettier
@@ -57,12 +57,12 @@ repos:
     rev: v0.37.0
     hooks:
       - id: markdownlint
-        args: ['--disable', 'MD013', 'MD033', 'MD041']
+        args: ["--disable", "MD013", "MD033", "MD041"]
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.33.0
     hooks:
       - id: yamllint
-        args: ['-d', '{extends: relaxed, rules: {line-length: {max: 150}}}']
+        args: ["-d", "{extends: relaxed, rules: {line-length: {max: 150}}}"]
 
 exclude: |
   (?x)^(
